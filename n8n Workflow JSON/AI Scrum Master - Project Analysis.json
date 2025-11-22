@@ -1,0 +1,261 @@
+{
+  "name": "AI Scrum Master - Project Analysis",
+  "description": "Setup Instructions:\n1. Add your OpenAI API credential\n2. Add your Google Firebase Firestore credential\n3. Update the Firebase project ID in 'Build Firestore JSON' node\n4. Replace 'ai-scrum-639ba' with your Firebase project ID",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "scrum-master",
+        "options": {}
+      },
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        -496,
+        -96
+      ],
+      "webhookId": "scrum-master",
+      "webhookPath": "scrum-master",
+      "id": "a951b0be-7990-43d9-ae54-824494972a26"
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $input.first().json.body;\nreturn [{\n  json: {\n    projectId: body.projectId,\n    projectName: body.projectName,\n    prompt: body.prompt,\n    userId: body.userId,\n    timestamp: body.timestamp\n  }\n}];"
+      },
+      "name": "Parse Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -320,
+        -304
+      ],
+      "id": "1a9ded22-cecf-4da8-9fba-81258fd2787a"
+    },
+    {
+      "parameters": {
+        "jsCode": "const projectName = $node['Parse Input'].json.projectName || 'Project';\nconst userPrompt = $node['Parse Input'].json.prompt || '';\n\nconst fullPrompt = `You are an expert Scrum Master analyzing project requirements.\n\nPROJECT: ${projectName}\nREQUIREMENT: ${userPrompt}\n\nGenerate a detailed project breakdown with 5-7 milestones.\nFor each milestone include 3-4 subtasks with time estimates.\nConsider all technologies mentioned (Flutter, Firebase, APIs, storage, etc.)\n\nIMPORTANT: Respond with ONLY valid JSON, no markdown, no code blocks, no explanations.\nStart with { and end with }\n\n{\n  \"milestones\": [\n    {\n      \"title\": \"Milestone title\",\n      \"description\": \"What will be accomplished\",\n      \"estimatedDays\": 2,\n      \"subtasks\": [\n        {\n          \"title\": \"Subtask title\",\n          \"description\": \"Subtask details\",\n          \"estimatedHours\": 4,\n          \"isCompleted\": false\n        }\n      ]\n    }\n  ],\n  \"requiredApis\": [\"API name\"],\n  \"schedules\": [\"Schedule description\"],\n  \"reminders\": [\"Reminder text\"]\n}`;\n\nreturn [{ json: { fullPrompt } }];"
+      },
+      "name": "Prepare Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -240,
+        -304
+      ],
+      "id": "a123b456c789d0e1f2g3h4i5j6k7l8m9"
+    },
+    {
+      "parameters": {
+        "resource": "chat",
+        "model": "gpt-4-turbo",
+        "prompt": {
+          "messages": [
+            {
+              "content": "={{ $node['Prepare Prompt'].json.fullPrompt }}"
+            }
+          ]
+        },
+        "options": {},
+        "requestOptions": {}
+      },
+      "name": "Parse Message with AI",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1,
+      "position": [
+        -96,
+        -304
+      ],
+      "id": "19d7613d-4830-4d85-ba7e-0d8ec8056d9b",
+      "credentials": {}
+    },
+    {
+      "parameters": {
+        "jsCode": "const aiResponse = $node['Parse Message with AI'].json;\nconst projectName = $node['Parse Input'].json.projectName || 'Project';\nconst userPrompt = $node['Parse Input'].json.prompt || '';\n\nconsole.log('\\n\\n🎯 ========== PARSING AI RESPONSE =========');\nconsole.log('PROJECT:', projectName);\nconsole.log('AI Response type:', typeof aiResponse);\nconsole.log('Has choices:', !!aiResponse.choices);\n\n// Extract content from OpenAI response\nlet content = '';\nif (aiResponse.choices && aiResponse.choices[0] && aiResponse.choices[0].message) {\n  content = aiResponse.choices[0].message.content || '';\n} else if (aiResponse.message) {\n  content = aiResponse.message.content || '';\n} else if (typeof aiResponse === 'string') {\n  content = aiResponse;\n}\n\nconsole.log('📝 Content length:', content.length);\nconsole.log('Content preview:', content.substring(0, 200));\n\nif (!content || content.length < 50) {\n  console.log('❌ ERROR: No content in AI response');\n  console.log('Full response:', JSON.stringify(aiResponse).substring(0, 500));\n  return [{ json: { milestones: [], requiredApis: [], schedules: [], reminders: [] } }];\n}\n\nlet analysisData = { milestones: [], requiredApis: [], schedules: [], reminders: [] };\n\ntry {\n  // Remove markdown code blocks if present\n  let cleaned = content.replace(/```json\\n?|```\\n?/gi, '').trim();\n  \n  // Try to extract JSON\n  let parsed = null;\n  try {\n    parsed = JSON.parse(cleaned);\n  } catch (e) {\n    // Try finding JSON object in the text\n    const jsonMatch = cleaned.match(/\\{[\\s\\S]*\\}/);\n    if (jsonMatch) {\n      parsed = JSON.parse(jsonMatch[0]);\n    }\n  }\n  \n  if (!parsed) {\n    console.log('❌ Could not parse JSON from response');\n    console.log('Cleaned response:', cleaned.substring(0, 300));\n    return [{ json: analysisData }];\n  }\n  \n  console.log('✅ JSON parsed successfully');\n  \n  // Validate and extract milestones\n  if (parsed.milestones && Array.isArray(parsed.milestones)) {\n    if (parsed.milestones.length > 0) {\n      analysisData.milestones = parsed.milestones;\n      console.log('✅ Got', analysisData.milestones.length, 'milestones');\n    } else {\n      console.log('⚠️ Milestones array is empty');\n    }\n  } else {\n    console.log('⚠️ No milestones array in response');\n  }\n  \n  // Extract other data\n  analysisData.requiredApis = (parsed.requiredApis && Array.isArray(parsed.requiredApis)) ? parsed.requiredApis : [];\n  analysisData.schedules = (parsed.schedules && Array.isArray(parsed.schedules)) ? parsed.schedules : [];\n  analysisData.reminders = (parsed.reminders && Array.isArray(parsed.reminders)) ? parsed.reminders : [];\n  \n  console.log('APIs:', analysisData.requiredApis.length);\n  console.log('Schedules:', analysisData.schedules.length);\n  console.log('Reminders:', analysisData.reminders.length);\n  \n} catch (err) {\n  console.log('❌ ERROR:', err.message);\n  console.log('Stack:', err.stack);\n}\n\nconsole.log('========== PARSING COMPLETE ===========\\n');\nreturn [{ json: analysisData }];"
+      },
+      "name": "Parse Transaction JSON",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        80,
+        -304
+      ],
+      "id": "9dc88ad5-8d91-4d37-ad6d-967c1d313dac"
+    },
+    {
+      "parameters": {
+        "jsCode": "const milestones = ($node['Parse Transaction JSON'].json.milestones || []).map(m => ({\n  mapValue: {\n    fields: {\n      title: { stringValue: m.title },\n      description: { stringValue: m.description },\n      estimatedDays: { integerValue: String(m.estimatedDays) },\n      subtasks: {\n        arrayValue: {\n          values: (m.subtasks || []).map(s => ({\n            mapValue: {\n              fields: {\n                title: { stringValue: s.title },\n                description: { stringValue: s.description },\n                estimatedHours: { integerValue: String(s.estimatedHours) },\n                isCompleted: { booleanValue: Boolean(s.isCompleted) }\n              }\n            }\n          }))\n        }\n      }\n    }\n  }\n}));\n\nconst requiredApis = ($node['Parse Transaction JSON'].json.requiredApis || []).map(api => ({\n  stringValue: api\n}));\n\nconst schedules = ($node['Parse Transaction JSON'].json.schedules || []).map(s => ({\n  stringValue: s\n}));\n\nconst reminders = ($node['Parse Transaction JSON'].json.reminders || []).map(r => ({\n  stringValue: r\n}));\n\nreturn [{\n  json: {\n    userId: $node['Parse Input'].json.userId,\n    projectId: $node['Parse Input'].json.projectId,\n    url: 'https://firestore.googleapis.com/v1/projects/YOUR_FIREBASE_PROJECT_ID/databases/(default)/documents/users/' + $node['Parse Input'].json.userId + '/projects/' + $node['Parse Input'].json.projectId + '/analysis',\n    fields: {\n      projectId: { stringValue: $node['Parse Input'].json.projectId },\n      projectName: { stringValue: $node['Parse Input'].json.projectName },\n      prompt: { stringValue: $node['Parse Input'].json.prompt },\n      processedAt: { timestampValue: new Date().toISOString() },\n      milestones: { arrayValue: { values: milestones } },\n      requiredApis: { arrayValue: { values: requiredApis } },\n      schedules: { arrayValue: { values: schedules } },\n      reminders: { arrayValue: { values: reminders } }\n    }\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        272,
+        -288
+      ],
+      "id": "c86f371d-4623-4f53-9255-a25fcfd3c8be",
+      "name": "Build Firestore JSON"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $node['Build Firestore JSON'].json.url }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleFirebaseCloudFirestoreOAuth2Api",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"fields\": {{JSON.stringify($node['Build Firestore JSON'].json.fields)}}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        80,
+        -32
+      ],
+      "name": "HTTP Request",
+      "id": "29581888-c1e5-4508-b307-6fbd731ce7a2",
+      "credentials": {}
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{\n  json: {\n    milestones: $node['Parse Transaction JSON'].json.milestones || [],\n    requiredApis: $node['Parse Transaction JSON'].json.requiredApis || [],\n    schedules: $node['Parse Transaction JSON'].json.schedules || [],\n    reminders: $node['Parse Transaction JSON'].json.reminders || []\n  }\n}];"
+      },
+      "name": "Format Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        160,
+        -288
+      ],
+      "id": "format-response-node"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "name": "Send Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        256,
+        -32
+      ],
+      "id": "fc8a206c-7653-4a47-82ee-b62c0980a0fc"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Parse Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Input": {
+      "main": [
+        [
+          {
+            "node": "Prepare Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Prompt": {
+      "main": [
+        [
+          {
+            "node": "Parse Message with AI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Message with AI": {
+      "main": [
+        [
+          {
+            "node": "Parse Transaction JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Transaction JSON": {
+      "main": [
+        [
+          {
+            "node": "Build Firestore JSON",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Response": {
+      "main": [
+        [
+          {
+            "node": "Send Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Send Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Firestore JSON": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": ["no-credentials", "template"]
+}
