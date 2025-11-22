@@ -9,10 +9,10 @@ class N8nService {
 
   // Test (ephemeral) webhook: must click "Listen for test event" before each call.
   static const String n8nTestWebhookUrl =
-      'https://demonseck.app.n8n.cloud/webhook-test/scrum-master';
+      'https://your-n8n-instance.com/webhook-test/scrum-master';
   // Production (persistent) webhook: requires workflow Active toggle ON.
   static const String n8nProdWebhookUrl =
-      'https://demonseck.app.n8n.cloud/webhook/scrum-master';
+      'https://your-n8n-instance.com/webhook/scrum-master';
 
   // Developer override: set to true to force test URL.
   bool useTestUrl = false;
