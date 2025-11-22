@@ -66,9 +66,6 @@ Simply describe your project requirements, and AI will:
   - [Firebase Configuration](#firebase-configuration)
   - [n8n Configuration](#n8n-configuration)
   - [Google Cloud Console Setup](#google-cloud-console-setup)
-- [Deployment](#deployment)
-- [Contributing](#contributing)
-- [License](#license)
 
 ---
 
@@ -546,66 +543,6 @@ class ApiService {
   }
 }
 ```
-
----
-
-## 🌐 Deployment
-
-### Deploy Flutter App
-
-#### Android Play Store
-
-```bash
-flutter build appbundle --release
-# Upload to Google Play Console
-```
-
-#### iOS App Store
-
-```bash
-flutter build ios --release
-# Upload using Xcode or Transporter
-```
-
-#### Web Deployment
-
-```bash
-flutter build web --release
-# Deploy to Firebase Hosting or any web server
-```
-
-### Deploy n8n Workflow
-
-#### Self-Hosted (Docker)
-
-```bash
-docker-compose up -d
-# Workflow automatically loads
-```
-
-#### n8n Cloud
-
-- Workflow saves automatically
-- Access from any browser
-
----
-
-## 🤝 Contributing
-
-Contributions are welcome! Please follow these steps:
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
----
-
-## 📄 License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
 ---
 
 ## 🆘 Troubleshooting
@@ -674,10 +611,6 @@ For issues and questions:
 
 ---
 
-**Made with by Dev 👨‍💻 [Kavindu Alwis](https://github.com/kavindualwis)**
-
----
-
 ### Quick Reference
 
 | Task               | Command                   |
@@ -692,4 +625,11 @@ For issues and questions:
 ---
 
 **Last Updated**: November 22, 2025
-**Version**: 1.0.0
+
+<div align="center">
+
+**Made by Dev 👨‍💻 [Kavindu Alwis](https://github.com/kavindualwis)**
+
+</div>
+
+---
